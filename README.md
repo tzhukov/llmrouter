@@ -18,7 +18,7 @@ The router acts as a stateless proxy between your application and various LLM pr
 ```text
 [ Client ] -> [ Router Proxy ] -> [ Strategy Engine ] -> [ Provider Adapters ]
                                           |                     |
-                                    [ Metrics/Stats ]     [ OpenAI/Groq/Mock ]
+                                  [ Metrics/Stats ]      [ OpenAI/Groq/Gemini/Mock ]
 ```
 
 ## 🛠️ Getting Started
