@@ -58,4 +58,20 @@ func TestRouter_Strategies(t *testing.T) {
 			t.Errorf("expected %s, got %s", expected, resp.ID)
 		}
 	})
+
+	t.Run("Streaming", func(t *testing.T) {
+		r.SetStrategy("round-robin")
+		respCh, errCh := r.StreamChatCompletion(ctx, req)
+		
+		count := 0
+		for range respCh {
+			count++
+		}
+		if err := <-errCh; err != nil {
+			t.Fatal(err)
+		}
+		if count == 0 {
+			t.Error("expected streamed chunks, got none")
+		}
+	})
 }

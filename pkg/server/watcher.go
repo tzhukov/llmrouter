@@ -7,12 +7,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/rs/zerolog/log"
 	"github.com/user/llmrouter/pkg/config"
-	"github.com/user/llmrouter/pkg/provider"
-	"github.com/user/llmrouter/pkg/provider/gemini"
-	"github.com/user/llmrouter/pkg/provider/groq"
-	"github.com/user/llmrouter/pkg/provider/mock"
-	"github.com/user/llmrouter/pkg/provider/openai"
-	"github.com/user/llmrouter/pkg/router"
 )
 
 func (s *Server) WatchConfig(path string) error {
@@ -63,31 +57,6 @@ func (s *Server) reloadConfig(path string) error {
 		return err
 	}
 
-	var providers []*router.ProviderWithMetadata
-	for _, pc := range cfg.Providers {
-		var p provider.Provider
-		switch pc.Type {
-		case "openai":
-			p = openai.NewOpenAIProvider(pc.APIKey, pc.BaseURL)
-		case "groq":
-			p = groq.NewGroqProvider(pc.APIKey, pc.BaseURL)
-		case "gemini":
-			p = gemini.NewGeminiProvider(pc.Name, pc.APIKey, pc.BaseURL)
-		case "mock":
-			p = mock.NewMockProvider(pc.Name, 0, nil)
-		default:
-			log.Warn().Str("type", pc.Type).Msg("unknown provider type, skipping")
-			continue
-		}
-
-		providers = append(providers, &router.ProviderWithMetadata{
-			Provider:        p,
-			PromptPrice:     pc.PromptPrice,
-			CompletionPrice: pc.CompletionPrice,
-		})
-	}
-
-	s.RouterEngine.UpdateProviders(providers)
-	s.RouterEngine.SetStrategy(cfg.Routing.Strategy)
+	s.Registry.UpdateConfig(cfg)
 	return nil
 }

@@ -5,15 +5,13 @@ metadata:
   name: {{ include "llmrouter.configMapName" . }}
 data:
   config.yaml: |
+{{- if .Values.config.agents }}
+    agents:
+{{ toYaml .Values.config.agents | indent 6 }}
+{{- else }}
     routing:
-      strategy: "latency"
-      failover: true
-      retries: 3
+{{ toYaml .Values.config.routing | indent 6 }}
     providers:
-      - name: mock-fast
-        type: mock
-        prompt_price: 0.05
-      - name: mock-cheap
-        type: mock
-        prompt_price: 0.01
+{{ toYaml .Values.config.providers | indent 6 }}
+{{- end }}
 {{- end }}

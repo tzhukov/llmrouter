@@ -15,8 +15,8 @@ import (
 )
 
 type Server struct {
-	Router       *chi.Mux
-	RouterEngine *router.Router
+	Router   *chi.Mux
+	Registry *router.RouterRegistry
 }
 
 func NewServer() *Server {
@@ -30,8 +30,8 @@ func NewServer() *Server {
 	r.Use(middleware.Recoverer)
 
 	s := &Server{
-		Router:       r,
-		RouterEngine: router.NewRouter(nil, "round-robin", true, 3),
+		Router:   r,
+		Registry: router.NewRouterRegistry(),
 	}
 
 	s.routes()
@@ -58,12 +58,19 @@ func (s *Server) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Stream {
-		s.handleChatCompletionStream(w, r, &req)
+	engine := s.Registry.GetRouter(req.AgentID)
+	if engine == nil {
+		log.Error().Str("agent_id", req.AgentID).Msg("no router found for agent")
+		http.Error(w, "no router available for this agent", http.StatusServiceUnavailable)
 		return
 	}
 
-	resp, err := s.RouterEngine.ChatCompletion(r.Context(), &req)
+	if req.Stream {
+		s.handleChatCompletionStream(w, r, &req, engine)
+		return
+	}
+
+	resp, err := engine.ChatCompletion(r.Context(), &req)
 	if err != nil {
 		log.Error().Err(err).Msg("routing failed")
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
@@ -74,7 +81,7 @@ func (s *Server) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-func (s *Server) handleChatCompletionStream(w http.ResponseWriter, r *http.Request, req *api.ChatCompletionRequest) {
+func (s *Server) handleChatCompletionStream(w http.ResponseWriter, r *http.Request, req *api.ChatCompletionRequest, engine *router.Router) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -86,7 +93,7 @@ func (s *Server) handleChatCompletionStream(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	respCh, errCh := s.RouterEngine.StreamChatCompletion(r.Context(), req)
+	respCh, errCh := engine.StreamChatCompletion(r.Context(), req)
 
 	// Use nil-ing pattern to avoid infinite loops on closed channels.
 	activeCh := respCh

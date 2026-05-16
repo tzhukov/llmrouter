@@ -28,6 +28,16 @@ config:
   create: true
   existingConfigMapName: ""
   hotReload: true
-
-secrets:
-  groqApiKey: ""
+  agents:
+    default:
+      routing:
+        strategy: "latency"
+        failover: true
+        retries: 3
+      providers:
+        - name: mock-fast
+          type: mock
+          prompt_price: 0.05
+        - name: mock-cheap
+          type: mock
+          prompt_price: 0.01

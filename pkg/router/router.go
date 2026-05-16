@@ -45,6 +45,7 @@ func (p *ProviderWithMetadata) GetLatency() float64 {
 
 // Router manages a pool of providers and handles routing logic.
 type Router struct {
+	agentID   string
 	providers []*ProviderWithMetadata
 	strategy  string
 	failover  bool
@@ -61,6 +62,12 @@ func NewRouter(providers []*ProviderWithMetadata, strategy string, failover bool
 		failover:  failover,
 		retries:   retries,
 	}
+}
+
+// WithAgentID sets the agent ID for metrics purposes.
+func (r *Router) WithAgentID(id string) *Router {
+	r.agentID = id
+	return r
 }
 
 // UpdateProviders safely replaces the provider pool (used for hot-reload).
@@ -151,12 +158,12 @@ func (r *Router) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequ
 			observability.ProviderHealth.WithLabelValues(p.Name()).Set(1)
 			p.UpdateLatency(duration)
 			// Record token usage
-			observability.TokenUsage.WithLabelValues(p.Name(), req.Model, "prompt").Add(float64(resp.Usage.PromptTokens))
-			observability.TokenUsage.WithLabelValues(p.Name(), req.Model, "completion").Add(float64(resp.Usage.CompletionTokens))
-			observability.TokenUsage.WithLabelValues(p.Name(), req.Model, "total").Add(float64(resp.Usage.TotalTokens))
+			observability.TokenUsage.WithLabelValues(r.agentID, p.Name(), req.Model, "prompt").Add(float64(resp.Usage.PromptTokens))
+			observability.TokenUsage.WithLabelValues(r.agentID, p.Name(), req.Model, "completion").Add(float64(resp.Usage.CompletionTokens))
+			observability.TokenUsage.WithLabelValues(r.agentID, p.Name(), req.Model, "total").Add(float64(resp.Usage.TotalTokens))
 		}
 
-		observability.RequestDuration.WithLabelValues(p.Name(), req.Model, status).Observe(duration)
+		observability.RequestDuration.WithLabelValues(r.agentID, p.Name(), req.Model, status).Observe(duration)
 
 		if err == nil {
 			return resp, nil
@@ -229,7 +236,7 @@ func (r *Router) StreamChatCompletion(ctx context.Context, req *api.ChatCompleti
 					if pErr := <-pErrCh; pErr != nil {
 						logger.Warn().Err(pErr).Str("provider", p.Name()).Msg("stream failed mid-way")
 					}
-					observability.RequestDuration.WithLabelValues(p.Name(), req.Model, "success").Observe(time.Since(start).Seconds())
+					observability.RequestDuration.WithLabelValues(r.agentID, p.Name(), req.Model, "success").Observe(time.Since(start).Seconds())
 					return
 				}
 			case err := <-pErrCh:
@@ -237,7 +244,7 @@ func (r *Router) StreamChatCompletion(ctx context.Context, req *api.ChatCompleti
 					lastErr = err
 					logger.Warn().Err(err).Str("provider", p.Name()).Msg("streaming provider failed to start")
 					observability.ProviderHealth.WithLabelValues(p.Name()).Set(0)
-					observability.RequestDuration.WithLabelValues(p.Name(), req.Model, "error").Observe(time.Since(start).Seconds())
+					observability.RequestDuration.WithLabelValues(r.agentID, p.Name(), req.Model, "error").Observe(time.Since(start).Seconds())
 					continue // Try next provider
 				}
 			case <-ctx.Done():

@@ -2,6 +2,7 @@ package api
 
 // ChatCompletionRequest represents a request to the chat completion endpoint.
 type ChatCompletionRequest struct {
+	AgentID          string                `json:"agent_id,omitempty"`
 	Model            string                `json:"model"`
 	Messages         []ChatCompletionMessage `json:"messages"`
 	Stream           bool                  `json:"stream,omitempty"`

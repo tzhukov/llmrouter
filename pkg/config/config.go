@@ -8,6 +8,12 @@ import (
 )
 
 type Config struct {
+	Providers []ProviderConfig          `yaml:"providers"`
+	Routing   RoutingConfig             `yaml:"routing"`
+	Agents    map[string]AgentConfig    `yaml:"agents"`
+}
+
+type AgentConfig struct {
 	Providers []ProviderConfig `yaml:"providers"`
 	Routing   RoutingConfig    `yaml:"routing"`
 }
@@ -47,6 +53,17 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal([]byte(expanded), &cfg); err != nil {
 		log.Printf("Error unmarshalling YAML: %v", err)
 		return nil, err
+	}
+
+	// Ensure backward compatibility by moving global providers/routing to default agent if needed
+	if cfg.Agents == nil {
+		cfg.Agents = make(map[string]AgentConfig)
+	}
+	if _, ok := cfg.Agents["default"]; !ok {
+		cfg.Agents["default"] = AgentConfig{
+			Providers: cfg.Providers,
+			Routing:   cfg.Routing,
+		}
 	}
 
 	log.Println("Configuration loaded successfully")
