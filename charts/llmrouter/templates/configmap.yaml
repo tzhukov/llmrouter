@@ -1,0 +1,19 @@
+{{- if .Values.config.create }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "llmrouter.configMapName" . }}
+data:
+  config.yaml: |
+    routing:
+      strategy: "latency"
+      failover: true
+      retries: 3
+    providers:
+      - name: mock-fast
+        type: mock
+        prompt_price: 0.05
+      - name: mock-cheap
+        type: mock
+        prompt_price: 0.01
+{{- end }}

@@ -1,0 +1,33 @@
+replicaCount: 1
+
+image:
+  repository: llmrouter
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+config:
+  create: true
+  existingConfigMapName: ""
+  hotReload: true
+
+secrets:
+  groqApiKey: ""
