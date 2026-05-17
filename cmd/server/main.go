@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/rs/zerolog"
@@ -15,23 +16,37 @@ func main() {
 
 	s := server.NewServer()
 
-	configPath := os.Getenv("CONFIG_PATH")
-	if configPath == "" {
-		configPath = "config.yaml"
+	configSource := os.Getenv("CONFIG_SOURCE")
+	if configSource == "" {
+		configSource = "file"
 	}
 
-	// Create dummy config if it doesn't exist for demo/phase 1 purposes
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		dummyConfig := `
+	if configSource == "remote" {
+		configURL := os.Getenv("CONFIG_URL")
+		if configURL == "" {
+			configURL = "http://llm-config-server:8081/v1/sync"
+		}
+		log.Info().Str("url", configURL).Msg("using remote config source")
+		s.WatchRemoteConfig(context.Background(), configURL)
+	} else {
+		configPath := os.Getenv("CONFIG_PATH")
+		if configPath == "" {
+			configPath = "config.yaml"
+		}
+
+		// Create dummy config if it doesn't exist for demo/phase 1 purposes
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+			dummyConfig := `
 providers:
   - name: mock-1
     type: mock
 `
-		os.WriteFile(configPath, []byte(dummyConfig), 0644)
-	}
+			os.WriteFile(configPath, []byte(dummyConfig), 0644)
+		}
 
-	if err := s.WatchConfig(configPath); err != nil {
-		log.Warn().Err(err).Msg("failed to start config watcher, using default/empty config")
+		if err := s.WatchConfig(configPath); err != nil {
+			log.Warn().Err(err).Msg("failed to start config watcher, using default/empty config")
+		}
 	}
 
 	port := os.Getenv("PORT")

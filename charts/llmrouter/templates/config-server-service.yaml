@@ -1,0 +1,19 @@
+{{- if .Values.configServer.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "llmrouter.fullname" . }}-config-server
+  labels:
+    {{- include "llmrouter.labels" . | nindent 4 }}
+    component: config-server
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8081
+      targetPort: 8081
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "llmrouter.selectorLabels" . | nindent 4 }}
+    component: config-server
+{{- end }}

@@ -28,6 +28,7 @@ config:
   create: true
   existingConfigMapName: ""
   hotReload: true
+  source: "file" # or "remote"
   agents:
     default:
       routing:
@@ -41,3 +42,21 @@ config:
         - name: mock-cheap
           type: mock
           prompt_price: 0.01
+
+configServer:
+  enabled: false
+  replicaCount: 3
+  image:
+    repository: llm-config-server
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+secrets:
+  groqApiKey: ""

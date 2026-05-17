@@ -35,20 +35,31 @@ spec:
               path: /health
               port: http
           env:
+            - name: CONFIG_SOURCE
+              value: {{ .Values.config.source | quote }}
+            {{- if eq .Values.config.source "remote" }}
+            - name: CONFIG_URL
+              value: "http://{{ include "llmrouter.fullname" . }}-config-server:8081/v1/sync"
+            {{- else }}
             - name: CONFIG_PATH
               value: "/etc/llmrouter/config.yaml"
+            {{- end }}
             - name: GROQ_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "llmrouter.fullname" . }}-secrets
                   key: GROQ_API_KEY
+          {{- if eq .Values.config.source "file" }}
           volumeMounts:
             - name: config-volume
               mountPath: /etc/llmrouter
+          {{- end }}
+      {{- if eq .Values.config.source "file" }}
       volumes:
         - name: config-volume
           configMap:
             name: {{ include "llmrouter.configMapName" . }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

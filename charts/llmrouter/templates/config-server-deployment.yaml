@@ -1,0 +1,32 @@
+{{- if .Values.configServer.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "llmrouter.fullname" . }}-config-server
+  labels:
+    {{- include "llmrouter.labels" . | nindent 4 }}
+    component: config-server
+spec:
+  replicas: {{ .Values.configServer.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "llmrouter.selectorLabels" . | nindent 6 }}
+      component: config-server
+  template:
+    metadata:
+      labels:
+        {{- include "llmrouter.selectorLabels" . | nindent 8 }}
+        component: config-server
+    spec:
+      serviceAccountName: {{ include "llmrouter.fullname" . }}-config-server
+      containers:
+        - name: config-server
+          image: "{{ .Values.configServer.image.repository }}:{{ .Values.configServer.image.tag }}"
+          imagePullPolicy: {{ .Values.configServer.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.configServer.resources | nindent 12 }}
+{{- end }}

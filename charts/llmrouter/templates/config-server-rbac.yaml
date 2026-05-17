@@ -1,0 +1,30 @@
+{{- if .Values.configServer.enabled -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "llmrouter.fullname" . }}-config-server
+  labels:
+    {{- include "llmrouter.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "llmrouter.fullname" . }}-config-server
+rules:
+  - apiGroups: ["llmrouter.io"]
+    resources: ["agents"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "llmrouter.fullname" . }}-config-server
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "llmrouter.fullname" . }}-config-server
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "llmrouter.fullname" . }}-config-server
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

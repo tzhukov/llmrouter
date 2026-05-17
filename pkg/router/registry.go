@@ -37,12 +37,16 @@ func (rr *RouterRegistry) GetRouter(agentID string) *Router {
 }
 
 func (rr *RouterRegistry) UpdateConfig(cfg *config.Config) {
+	rr.UpdateAgents(cfg.Agents)
+}
+
+func (rr *RouterRegistry) UpdateAgents(agents map[string]config.AgentConfig) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 
 	newRouters := make(map[string]*Router)
 
-	for agentID, agentCfg := range cfg.Agents {
+	for agentID, agentCfg := range agents {
 		var providers []*ProviderWithMetadata
 		for _, pc := range agentCfg.Providers {
 			var p provider.Provider

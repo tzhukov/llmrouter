@@ -1,9 +1,9 @@
 package config
 
 import (
-	"log"
 	"os"
 
+	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -37,21 +37,21 @@ type RoutingConfig struct {
 
 // Load loads the configuration from a YAML file and expands environment variables.
 func Load(path string) (*Config, error) {
-	log.Printf("Loading configuration from file: %s", path)
+	log.Debug().Str("path", path).Msg("loading configuration from file")
 	data, err := os.ReadFile(path)
 	if err != nil {
-		log.Printf("Error reading configuration file: %v", err)
+		log.Error().Err(err).Str("path", path).Msg("error reading configuration file")
 		return nil, err
 	}
 
-	log.Println("Expanding environment variables in configuration")
+	log.Debug().Msg("expanding environment variables in configuration")
 	// Simple env var expansion: ${VAR}
 	expanded := os.ExpandEnv(string(data))
 
 	var cfg Config
-	log.Println("Unmarshalling YAML configuration")
+	log.Debug().Msg("unmarshalling YAML configuration")
 	if err := yaml.Unmarshal([]byte(expanded), &cfg); err != nil {
-		log.Printf("Error unmarshalling YAML: %v", err)
+		log.Error().Err(err).Msg("error unmarshalling YAML")
 		return nil, err
 	}
 
@@ -66,7 +66,7 @@ func Load(path string) (*Config, error) {
 		}
 	}
 
-	log.Println("Configuration loaded successfully")
+	log.Info().Str("path", path).Msg("configuration loaded successfully")
 	return &cfg, nil
 }
 

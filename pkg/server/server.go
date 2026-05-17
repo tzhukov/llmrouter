@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 	"github.com/user/llmrouter/pkg/api"
+	"github.com/user/llmrouter/pkg/config"
 	"github.com/user/llmrouter/pkg/observability"
 	"github.com/user/llmrouter/pkg/router"
 )
@@ -127,6 +129,24 @@ func (s *Server) handleChatCompletionStream(w http.ResponseWriter, r *http.Reque
 	// All chunks delivered — send OpenAI-compatible stream terminator.
 	fmt.Fprint(w, "data: [DONE]\n\n")
 	flush()
+}
+
+func (s *Server) WatchRemoteConfig(ctx context.Context, url string) {
+	provider := config.NewRemoteProvider(url)
+	updateCh := make(chan map[string]config.AgentConfig)
+
+	go provider.Watch(ctx, updateCh)
+
+	go func() {
+		for {
+			select {
+			case agents := <-updateCh:
+				s.Registry.UpdateAgents(agents)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 func (s *Server) Start(addr string) error {

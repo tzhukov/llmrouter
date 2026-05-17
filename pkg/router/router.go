@@ -70,6 +70,12 @@ func (r *Router) WithAgentID(id string) *Router {
 	return r
 }
 
+func (r *Router) GetStrategy() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.strategy
+}
+
 // UpdateProviders safely replaces the provider pool (used for hot-reload).
 func (r *Router) UpdateProviders(newProviders []*ProviderWithMetadata) {
 	r.mu.Lock()
