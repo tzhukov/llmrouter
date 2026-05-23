@@ -9,7 +9,7 @@ on:
 jobs:
   lint:
     name: Lint
-    runs-on: [self-hosted, linux, x64, kind, llmrouter]
+    runs-on: llmrouter-kind
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -22,7 +22,7 @@ jobs:
 
   test:
     name: Test
-    runs-on: [self-hosted, linux, x64, kind, llmrouter]
+    runs-on: llmrouter-kind
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -33,7 +33,7 @@ jobs:
 
   bench:
     name: Benchmark
-    runs-on: [self-hosted, linux, x64, kind, llmrouter]
+    runs-on: llmrouter-kind
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
