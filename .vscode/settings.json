@@ -1,0 +1,6 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "kubectl rollout": true,
+        "diff": true
+    }
+}

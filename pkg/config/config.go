@@ -26,6 +26,7 @@ type ProviderConfig struct {
 	Weight          int               `yaml:"weight"`
 	PromptPrice     float64           `yaml:"prompt_price"`     // Price per 1k tokens
 	CompletionPrice float64           `yaml:"completion_price"` // Price per 1k tokens
+	Models          []string          `yaml:"models"`           // Supported models
 	Params          map[string]string `yaml:"params"`
 }
 

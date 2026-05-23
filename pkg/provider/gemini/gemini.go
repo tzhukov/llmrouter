@@ -22,6 +22,7 @@ type GeminiProvider struct {
 	apiKey     string
 	baseURL    string
 	httpClient *http.Client
+	modelMap   map[string]string
 }
 
 func NewGeminiProvider(name, apiKey, baseURL string) *GeminiProvider {
@@ -36,11 +37,28 @@ func NewGeminiProvider(name, apiKey, baseURL string) *GeminiProvider {
 		apiKey:     apiKey,
 		baseURL:    baseURL,
 		httpClient: &http.Client{},
+		modelMap:   make(map[string]string),
 	}
+}
+
+func (p *GeminiProvider) SetModelMap(m map[string]string) {
+	p.modelMap = m
 }
 
 func (p *GeminiProvider) Name() string {
 	return p.name
+}
+
+// ... (other types unchanged)
+
+func (p *GeminiProvider) modelName(req *api.ChatCompletionRequest) string {
+	if req.Model == "" {
+		return defaultModel
+	}
+	if mapped, ok := p.modelMap[req.Model]; ok {
+		return mapped
+	}
+	return req.Model
 }
 
 // --- Gemini native types ---
@@ -115,17 +133,11 @@ func toGeminiRequest(req *api.ChatCompletionRequest) *geminiRequest {
 	return gr
 }
 
-func modelName(req *api.ChatCompletionRequest) string {
-	if req.Model != "" {
-		return req.Model
-	}
-	return defaultModel
-}
-
 // --- ChatCompletion ---
 
 func (p *GeminiProvider) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (*api.ChatCompletionResponse, error) {
-	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", p.baseURL, modelName(req), p.apiKey)
+	actualModel := p.modelName(req)
+	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", p.baseURL, actualModel, p.apiKey)
 
 	body, err := json.Marshal(toGeminiRequest(req))
 	if err != nil {
@@ -153,7 +165,7 @@ func (p *GeminiProvider) ChatCompletion(ctx context.Context, req *api.ChatComple
 		return nil, err
 	}
 
-	return toOpenAIResponse(&gr, modelName(req)), nil
+	return toOpenAIResponse(&gr, actualModel), nil
 }
 
 func toOpenAIResponse(gr *geminiResponse, model string) *api.ChatCompletionResponse {
@@ -200,7 +212,8 @@ func (p *GeminiProvider) StreamChatCompletion(ctx context.Context, req *api.Chat
 		return respCh, errCh
 	}
 
-	url := fmt.Sprintf("%s/models/%s:streamGenerateContent?key=%s&alt=sse", p.baseURL, modelName(req), p.apiKey)
+	actualModel := p.modelName(req)
+	url := fmt.Sprintf("%s/models/%s:streamGenerateContent?key=%s&alt=sse", p.baseURL, actualModel, p.apiKey)
 
 	body, err := json.Marshal(toGeminiRequest(req))
 	if err != nil {
@@ -222,7 +235,6 @@ func (p *GeminiProvider) StreamChatCompletion(ctx context.Context, req *api.Chat
 		return errOut(fmt.Errorf("gemini api error: status code %d", resp.StatusCode))
 	}
 
-	model := modelName(req)
 	go func() {
 		defer close(respCh)
 		defer close(errCh)
@@ -253,7 +265,7 @@ func (p *GeminiProvider) StreamChatCompletion(ctx context.Context, req *api.Chat
 				continue
 			}
 
-			chunk := toOpenAIStreamChunk(&gr, model)
+			chunk := toOpenAIStreamChunk(&gr, actualModel)
 			select {
 			case respCh <- chunk:
 			case <-ctx.Done():

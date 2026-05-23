@@ -5,78 +5,74 @@ A high-performance, Go-based proxy server that routes LLM requests across multip
 ## 🚀 Key Features
 
 - **Unified OpenAI Interface:** Drop-in replacement for OpenAI-compatible tools and SDKs.
+- **Per-Agent Multi-Tenancy:** Define independent routing policies, providers, and parameters per agent ID.
+- **Scalable Ambient Control Plane:** Kubernetes-native self-service via CRDs with a high-availability (3 replicas) config server and real-time SSE streaming.
 - **Intelligent Routing:** Optimize for **Cost** ($ per 1k tokens) or **Latency** (Moving Average).
 - **Resilience:** Automatic failover and retry logic across multiple provider pools.
-- **K8s-Native:** Built for Kubernetes with **Hot Reloading** from ConfigMaps and secure API key injection via Secrets.
-- **Observability-First:** Standardized Prometheus metrics, structured JSON logging, and request-id tracing.
-- **MockLLM:** First-class support for simulating LLM backends for testing and local development.
+- **K8s-Native:** Built for Kubernetes with hot reloading, secure API key injection, and least-privilege RBAC.
+- **Observability-First:** Standardized Prometheus metrics (per-agent), structured JSON logging, and request-id tracing.
+- **Claude Code Ready:** Includes built-in LiteLLM support for Anthropic Messages API compatibility.
 
 ## 🏗️ Architecture
 
-The router acts as a stateless proxy between your application and various LLM providers.
+The router uses an "Ambient" architecture where the Control Plane is decoupled from the Data Plane for maximum scalability.
 
 ```text
-[ Client ] -> [ Router Proxy ] -> [ Strategy Engine ] -> [ Provider Adapters ]
-                                          |                     |
-                                  [ Metrics/Stats ]      [ OpenAI/Groq/Gemini/Mock ]
+[ K8s API (Agents CRD) ] 
+         |
+[ HA Config Server (3 reps) ] --- (SSE Stream) --- [ Router Pod 1 ] --- [ Providers ]
+                                              \--- [ Router Pod N ] --- [ Providers ]
 ```
 
 ## 🛠️ Getting Started
 
 ### Prerequisites
-- Go 1.22+
+- Go 1.26+
 - Docker
 - Helm (for Kubernetes deployment)
 - Tilt (for local development)
 
 ### Local Development (Tilt)
-The fastest way to get started is using [Tilt](https://tilt.dev/):
 ```bash
 tilt up
 ```
-This will build the container, deploy it to your local Kubernetes cluster (Kind/Minikube), and set up port-forwarding to `:8080`.
-
-### Local Run (Go)
-```bash
-export CONFIG_PATH=config.yaml
-go run cmd/server/main.go
-```
+This builds the router, deploys the HA Config Server, and sets up LiteLLM for Claude Code compatibility on `:8000`.
 
 ## ⚙️ Configuration
 
-The router is configured via a YAML file. Environment variables like `${OPENAI_API_KEY}` are automatically expanded.
+The router supports both local file configuration and remote streaming.
 
+### Agent-Based YAML (File Mode)
 ```yaml
-routing:
-  strategy: "latency" # options: round-robin, cost, latency
-  failover: true
-  retries: 3
-
-providers:
-  - name: openai-gpt4
-    type: openai
-    api_key: ${OPENAI_API_KEY}
-    prompt_price: 0.03
-    completion_price: 0.06
-  - name: groq-llama3
-    type: groq
-    api_key: ${GROQ_API_KEY}
-    prompt_price: 0.0005
-    completion_price: 0.0008
+agents:
+  researcher:
+    routing:
+      strategy: "latency"
+    providers:
+      - name: openai-gpt4
+        type: openai
+        api_key: ${OPENAI_API_KEY}
+  coder:
+    routing:
+      strategy: "cost"
+    providers:
+      - name: groq-llama3
+        type: groq
+        api_key: ${GROQ_API_KEY}
 ```
 
 ## 📊 Observability
 
-- **Metrics:** `GET /metrics` (Prometheus format)
+- **Metrics:** `GET /metrics` (Includes `agent_id` labels for cost tracking)
 - **Health:** `GET /health`
-- **Logs:** Structured JSON logs with `request_id` correlation.
+- **Logs:** Structured JSON logs.
 
 ## 📄 Documentation
 
-Detailed phase-by-phase documentation and design decisions can be found in the [docs/](./docs/) folder.
-
-- [Design Document](./docs/DESIGN.md)
-- [Project Assessment](./docs/copilot-assesment.md)
+- [Per-Agent Configuration (Implementation)](./docs/per_agent_config/design.md)
+- [Self-Service CRD & Control Plane](./docs/self-service-crd/design.md)
+- [Security & Performance Audit](./docs/audit_and_benchmarking.md)
+- [Legacy Design Document](./docs/poc/DESIGN.md)
 
 ## ⚖️ License
 MIT

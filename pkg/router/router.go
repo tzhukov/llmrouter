@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -20,28 +21,31 @@ var (
 
 type ProviderWithMetadata struct {
 	provider.Provider
-	PromptPrice    float64
+	PromptPrice     float64
 	CompletionPrice float64
-	AvgLatency     float64
-	latencyMu      sync.RWMutex
+	Models          []string
+	AvgLatency      float64
+	mu              sync.RWMutex
 }
 
+
 func (p *ProviderWithMetadata) UpdateLatency(latency float64) {
-	p.latencyMu.Lock()
-	defer p.latencyMu.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	// Simple Moving Average (alpha = 0.2)
 	if p.AvgLatency == 0 {
 		p.AvgLatency = latency
 	} else {
-		p.AvgLatency = p.AvgLatency*0.8 + latency*0.2
+		p.AvgLatency = 0.8*p.AvgLatency + 0.2*latency
 	}
 }
 
 func (p *ProviderWithMetadata) GetLatency() float64 {
-	p.latencyMu.RLock()
-	defer p.latencyMu.RUnlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	return p.AvgLatency
 }
+
 
 // Router manages a pool of providers and handles routing logic.
 type Router struct {
@@ -92,27 +96,52 @@ func (r *Router) SetStrategy(strategy string) {
 }
 
 // selectProviders orders providers according to the active routing strategy.
-func (r *Router) selectProviders(providers []*ProviderWithMetadata, strategy string) []*ProviderWithMetadata {
+func (r *Router) selectProviders(providers []*ProviderWithMetadata, requestedModel string, strategy string) []*ProviderWithMetadata {
+	// Filter providers by model support
+	var filtered []*ProviderWithMetadata
+	for _, p := range providers {
+		if len(p.Models) == 0 {
+			// Backward compatibility: if no models listed, assume it supports everything
+			filtered = append(filtered, p)
+			continue
+		}
+		
+		supported := false
+		for _, m := range p.Models {
+			if m == requestedModel {
+				supported = true
+				break
+			}
+		}
+		if supported {
+			filtered = append(filtered, p)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil
+	}
+
 	switch strategy {
 	case "cost":
-		sorted := make([]*ProviderWithMetadata, len(providers))
-		copy(sorted, providers)
+		sorted := make([]*ProviderWithMetadata, len(filtered))
+		copy(sorted, filtered)
 		sort.Slice(sorted, func(i, j int) bool {
 			return sorted[i].PromptPrice < sorted[j].PromptPrice
 		})
 		return sorted
 	case "latency":
-		sorted := make([]*ProviderWithMetadata, len(providers))
-		copy(sorted, providers)
+		sorted := make([]*ProviderWithMetadata, len(filtered))
+		copy(sorted, filtered)
 		sort.Slice(sorted, func(i, j int) bool {
 			return sorted[i].GetLatency() < sorted[j].GetLatency()
 		})
 		return sorted
 	default: // round-robin
-		startIdx := int(atomic.AddUint64(&r.current, 1) % uint64(len(providers)))
-		sorted := make([]*ProviderWithMetadata, 0, len(providers))
-		for i := 0; i < len(providers); i++ {
-			sorted = append(sorted, providers[(startIdx+i)%len(providers)])
+		startIdx := int(atomic.AddUint64(&r.current, 1) % uint64(len(filtered)))
+		sorted := make([]*ProviderWithMetadata, 0, len(filtered))
+		for i := 0; i < len(filtered); i++ {
+			sorted = append(sorted, filtered[(startIdx+i)%len(filtered)])
 		}
 		return sorted
 	}
@@ -130,7 +159,10 @@ func (r *Router) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequ
 		return nil, ErrNoProviders
 	}
 
-	sortedProviders := r.selectProviders(providers, strategy)
+	sortedProviders := r.selectProviders(providers, req.Model, strategy)
+	if len(sortedProviders) == 0 {
+		return nil, fmt.Errorf("no providers support model: %s", req.Model)
+	}
 
 	maxAttempts := 1
 	if failover {
@@ -204,7 +236,13 @@ func (r *Router) StreamChatCompletion(ctx context.Context, req *api.ChatCompleti
 		return respCh, errCh
 	}
 
-	sortedProviders := r.selectProviders(providers, strategy)
+	sortedProviders := r.selectProviders(providers, req.Model, strategy)
+	if len(sortedProviders) == 0 {
+		errCh <- fmt.Errorf("no providers support model: %s", req.Model)
+		close(respCh)
+		close(errCh)
+		return respCh, errCh
+	}
 
 	go func() {
 		defer close(respCh)

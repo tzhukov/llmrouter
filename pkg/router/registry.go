@@ -68,7 +68,15 @@ func (rr *RouterRegistry) UpdateAgents(agents map[string]config.AgentConfig) {
 				Provider:        p,
 				PromptPrice:     pc.PromptPrice,
 				CompletionPrice: pc.CompletionPrice,
+				Models:          pc.Models,
 			})
+
+			// Inject model map if provided in params
+			if pc.Type == "gemini" && len(pc.Params) > 0 {
+				if gp, ok := p.(*gemini.GeminiProvider); ok {
+					gp.SetModelMap(pc.Params)
+				}
+			}
 		}
 
 		newRouters[agentID] = NewRouter(
