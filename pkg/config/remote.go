@@ -17,6 +17,7 @@ type RemoteProvider struct {
 	url string
 }
 
+// NewRemoteProvider creates a new RemoteProvider with the given URL.
 func NewRemoteProvider(url string) *RemoteProvider {
 	return &RemoteProvider{url: url}
 }
@@ -49,7 +50,9 @@ func (p *RemoteProvider) subscribe(ctx context.Context, updateCh chan<- map[stri
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)

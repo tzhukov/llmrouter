@@ -17,11 +17,13 @@ import (
 	"github.com/user/llmrouter/pkg/router"
 )
 
+// Server represents the LLM router server.
 type Server struct {
 	Router   *chi.Mux
-	Registry *router.RouterRegistry
+	Registry *router.Registry
 }
 
+// NewServer creates a new Server instance.
 func NewServer() *Server {
 	r := chi.NewRouter()
 
@@ -34,7 +36,7 @@ func NewServer() *Server {
 
 	s := &Server{
 		Router:   r,
-		Registry: router.NewRouterRegistry(),
+		Registry: router.NewRegistry(),
 	}
 
 	s.routes()
@@ -101,9 +103,11 @@ type responsesResponse struct {
 	OutputText string                `json:"output_text"`
 }
 
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	if _, err := w.Write([]byte("OK")); err != nil {
+		log.Error().Err(err).Msg("failed to write health response")
+	}
 }
 
 func (s *Server) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
@@ -134,7 +138,9 @@ func (s *Server) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Error().Err(err).Msg("failed to encode response")
+	}
 }
 
 func (s *Server) handleResponses(w http.ResponseWriter, r *http.Request) {
@@ -213,7 +219,9 @@ func (s *Server) handleResponses(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Error().Err(err).Msg("failed to encode response")
+	}
 }
 
 func (s *Server) translateResponsesToMessages(input []responsesInputItem) []api.ChatCompletionMessage {
@@ -261,7 +269,10 @@ func (s *Server) handleChatCompletionStream(w http.ResponseWriter, r *http.Reque
 				continue
 			}
 			data, _ := json.Marshal(chunk)
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+				log.Error().Err(err).Msg("failed to write stream data")
+				return
+			}
 			flush()
 		case err, ok := <-activeErrCh:
 			if !ok {
@@ -270,7 +281,9 @@ func (s *Server) handleChatCompletionStream(w http.ResponseWriter, r *http.Reque
 			}
 			if err != nil {
 				log.Error().Err(err).Msg("streaming failed")
-				fmt.Fprintf(w, "data: {\"error\":\"%s\"}\n\n", err.Error())
+				if _, err := fmt.Fprintf(w, "data: {\"error\":\"%s\"}\n\n", err.Error()); err != nil {
+					log.Error().Err(err).Msg("failed to write stream error")
+				}
 				flush()
 				return
 			}
@@ -280,15 +293,18 @@ func (s *Server) handleChatCompletionStream(w http.ResponseWriter, r *http.Reque
 	}
 
 	// All chunks delivered — send OpenAI-compatible stream terminator.
-	fmt.Fprint(w, "data: [DONE]\n\n")
+	if _, err := fmt.Fprint(w, "data: [DONE]\n\n"); err != nil {
+		log.Error().Err(err).Msg("failed to write stream terminator")
+	}
 	flush()
 }
 
+// WatchRemoteConfig starts watching configuration from a remote URL.
 func (s *Server) WatchRemoteConfig(ctx context.Context, url string) {
-	provider := config.NewRemoteProvider(url)
+	remoteProvider := config.NewRemoteProvider(url)
 	updateCh := make(chan map[string]config.AgentConfig)
 
-	go provider.Watch(ctx, updateCh)
+	go remoteProvider.Watch(ctx, updateCh)
 
 	go func() {
 		for {
@@ -302,6 +318,7 @@ func (s *Server) WatchRemoteConfig(ctx context.Context, url string) {
 	}()
 }
 
+// Start starts the server on the given address.
 func (s *Server) Start(addr string) error {
 	log.Info().Str("addr", addr).Msg("starting server")
 	return http.ListenAndServe(addr, s.Router)

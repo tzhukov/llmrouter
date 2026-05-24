@@ -1,3 +1,4 @@
+// Package main is the entry point for the llmrouter server.
 package main
 
 import (
@@ -41,7 +42,9 @@ providers:
   - name: mock-1
     type: mock
 `
-			os.WriteFile(configPath, []byte(dummyConfig), 0644)
+			if err := os.WriteFile(configPath, []byte(dummyConfig), 0644); err != nil {
+				log.Error().Err(err).Msg("failed to create dummy config")
+			}
 		}
 
 		if err := s.WatchConfig(configPath); err != nil {

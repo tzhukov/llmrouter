@@ -1,3 +1,4 @@
+// Package openai implements the OpenAI provider for the llmrouter.
 package openai
 
 import (
@@ -11,30 +12,34 @@ import (
 	"github.com/user/llmrouter/pkg/provider/sse"
 )
 
-type OpenAIProvider struct {
+// Provider implements the OpenAI LLM provider.
+type Provider struct {
 	apiKey     string
-	baseUrl    string
+	baseURL    string
 	httpClient *http.Client
 }
 
-func NewOpenAIProvider(apiKey string, baseUrl string) *OpenAIProvider {
-	if baseUrl == "" {
-		baseUrl = "https://api.openai.com/v1"
+// NewProvider creates a new OpenAI provider.
+func NewProvider(apiKey string, baseURL string) *Provider {
+	if baseURL == "" {
+		baseURL = "https://api.openai.com/v1"
 	}
-	return &OpenAIProvider{
+	return &Provider{
 		apiKey:     apiKey,
-		baseUrl:    baseUrl,
+		baseURL:    baseURL,
 		httpClient: &http.Client{},
 	}
 }
 
-func (p *OpenAIProvider) Name() string {
+// Name returns the provider name.
+func (p *Provider) Name() string {
 	return "openai"
 }
 
-func (p *OpenAIProvider) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (*api.ChatCompletionResponse, error) {
-	url := fmt.Sprintf("%s/chat/completions", p.baseUrl)
-	
+// ChatCompletion sends a chat completion request to OpenAI.
+func (p *Provider) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (*api.ChatCompletionResponse, error) {
+	url := fmt.Sprintf("%s/chat/completions", p.baseURL)
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -52,7 +57,9 @@ func (p *OpenAIProvider) ChatCompletion(ctx context.Context, req *api.ChatComple
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("openai api error: status code %d", resp.StatusCode)
@@ -66,7 +73,8 @@ func (p *OpenAIProvider) ChatCompletion(ctx context.Context, req *api.ChatComple
 	return &completionResp, nil
 }
 
-func (p *OpenAIProvider) StreamChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (<-chan *api.ChatCompletionStreamResponse, <-chan error) {
+// StreamChatCompletion sends a streaming chat completion request to OpenAI.
+func (p *Provider) StreamChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (<-chan *api.ChatCompletionStreamResponse, <-chan error) {
 	errOut := func(err error) (<-chan *api.ChatCompletionStreamResponse, <-chan error) {
 		ch := make(chan *api.ChatCompletionStreamResponse)
 		ec := make(chan error, 1)
@@ -79,7 +87,7 @@ func (p *OpenAIProvider) StreamChatCompletion(ctx context.Context, req *api.Chat
 	streamReq := *req
 	streamReq.Stream = true
 
-	url := fmt.Sprintf("%s/chat/completions", p.baseUrl)
+	url := fmt.Sprintf("%s/chat/completions", p.baseURL)
 	body, err := json.Marshal(streamReq)
 	if err != nil {
 		return errOut(err)
@@ -97,7 +105,7 @@ func (p *OpenAIProvider) StreamChatCompletion(ctx context.Context, req *api.Chat
 		return errOut(err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return errOut(fmt.Errorf("openai api error: status code %d", resp.StatusCode))
 	}
 

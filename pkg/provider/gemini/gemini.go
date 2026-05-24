@@ -1,3 +1,4 @@
+// Package gemini implements the Google Gemini provider for the llmrouter.
 package gemini
 
 import (
@@ -16,8 +17,8 @@ import (
 const defaultBaseURL = "https://generativelanguage.googleapis.com/v1beta"
 const defaultModel = "gemini-1.5-flash"
 
-// GeminiProvider adapts the Google Gemini API to the provider.Provider interface.
-type GeminiProvider struct {
+// Provider adapts the Google Gemini API to the provider.Provider interface.
+type Provider struct {
 	name       string
 	apiKey     string
 	baseURL    string
@@ -25,14 +26,15 @@ type GeminiProvider struct {
 	modelMap   map[string]string
 }
 
-func NewGeminiProvider(name, apiKey, baseURL string) *GeminiProvider {
+// NewProvider creates a new Gemini Provider.
+func NewProvider(name, apiKey, baseURL string) *Provider {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
 	if name == "" {
 		name = "gemini"
 	}
-	return &GeminiProvider{
+	return &Provider{
 		name:       name,
 		apiKey:     apiKey,
 		baseURL:    baseURL,
@@ -41,17 +43,17 @@ func NewGeminiProvider(name, apiKey, baseURL string) *GeminiProvider {
 	}
 }
 
-func (p *GeminiProvider) SetModelMap(m map[string]string) {
+// SetModelMap sets the model mapping for the provider.
+func (p *Provider) SetModelMap(m map[string]string) {
 	p.modelMap = m
 }
 
-func (p *GeminiProvider) Name() string {
+// Name returns the provider name.
+func (p *Provider) Name() string {
 	return p.name
 }
 
-// ... (other types unchanged)
-
-func (p *GeminiProvider) modelName(req *api.ChatCompletionRequest) string {
+func (p *Provider) modelName(req *api.ChatCompletionRequest) string {
 	if req.Model == "" {
 		return defaultModel
 	}
@@ -135,7 +137,8 @@ func toGeminiRequest(req *api.ChatCompletionRequest) *geminiRequest {
 
 // --- ChatCompletion ---
 
-func (p *GeminiProvider) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (*api.ChatCompletionResponse, error) {
+// ChatCompletion sends a chat completion request to Gemini.
+func (p *Provider) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (*api.ChatCompletionResponse, error) {
 	actualModel := p.modelName(req)
 	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", p.baseURL, actualModel, p.apiKey)
 
@@ -154,7 +157,9 @@ func (p *GeminiProvider) ChatCompletion(ctx context.Context, req *api.ChatComple
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("gemini api error: status code %d", resp.StatusCode)
@@ -201,7 +206,8 @@ func toOpenAIResponse(gr *geminiResponse, model string) *api.ChatCompletionRespo
 
 // --- StreamChatCompletion ---
 
-func (p *GeminiProvider) StreamChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (<-chan *api.ChatCompletionStreamResponse, <-chan error) {
+// StreamChatCompletion sends a streaming chat completion request to Gemini.
+func (p *Provider) StreamChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (<-chan *api.ChatCompletionStreamResponse, <-chan error) {
 	respCh := make(chan *api.ChatCompletionStreamResponse)
 	errCh := make(chan error, 1)
 
@@ -231,14 +237,16 @@ func (p *GeminiProvider) StreamChatCompletion(ctx context.Context, req *api.Chat
 		return errOut(err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return errOut(fmt.Errorf("gemini api error: status code %d", resp.StatusCode))
 	}
 
 	go func() {
 		defer close(respCh)
 		defer close(errCh)
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		scanner := bufio.NewScanner(resp.Body)
 		for scanner.Scan() {

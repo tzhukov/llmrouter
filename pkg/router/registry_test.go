@@ -7,7 +7,7 @@ import (
 )
 
 func TestRouterRegistry(t *testing.T) {
-	rr := NewRouterRegistry()
+	rr := NewRegistry()
 
 	cfg := &config.Config{
 		Agents: map[string]config.AgentConfig{

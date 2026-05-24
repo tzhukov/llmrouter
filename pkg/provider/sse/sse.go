@@ -1,3 +1,4 @@
+// Package sse provides utilities for handling Server-Sent Events.
 package sse
 
 import (
@@ -19,7 +20,9 @@ func Stream(ctx context.Context, body io.ReadCloser) (<-chan *api.ChatCompletion
 	go func() {
 		defer close(respCh)
 		defer close(errCh)
-		defer body.Close()
+		defer func() {
+			_ = body.Close()
+		}()
 
 		scanner := bufio.NewScanner(body)
 		for scanner.Scan() {

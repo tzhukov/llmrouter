@@ -1,3 +1,4 @@
+// Package provider defines the interface for LLM providers.
 package provider
 
 import (

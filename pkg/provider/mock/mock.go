@@ -1,3 +1,4 @@
+// Package mock implements a mock provider for testing and simulation.
 package mock
 
 import (
@@ -8,26 +9,29 @@ import (
 	"github.com/user/llmrouter/pkg/api"
 )
 
-// MockProvider is a provider used for testing and simulation.
-type MockProvider struct {
+// Provider is a provider used for testing and simulation.
+type Provider struct {
 	name    string
 	latency time.Duration
 	err     error
 }
 
-func NewMockProvider(name string, latency time.Duration, err error) *MockProvider {
-	return &MockProvider{
+// NewProvider creates a new mock provider.
+func NewProvider(name string, latency time.Duration, err error) *Provider {
+	return &Provider{
 		name:    name,
 		latency: latency,
 		err:     err,
 	}
 }
 
-func (p *MockProvider) Name() string {
+// Name returns the provider name.
+func (p *Provider) Name() string {
 	return p.name
 }
 
-func (p *MockProvider) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (*api.ChatCompletionResponse, error) {
+// ChatCompletion simulates a chat completion request.
+func (p *Provider) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (*api.ChatCompletionResponse, error) {
 	if p.latency > 0 {
 		select {
 		case <-time.After(p.latency):
@@ -63,7 +67,8 @@ func (p *MockProvider) ChatCompletion(ctx context.Context, req *api.ChatCompleti
 	}, nil
 }
 
-func (p *MockProvider) StreamChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (<-chan *api.ChatCompletionStreamResponse, <-chan error) {
+// StreamChatCompletion simulates a streaming chat completion request.
+func (p *Provider) StreamChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (<-chan *api.ChatCompletionStreamResponse, <-chan error) {
 	respCh := make(chan *api.ChatCompletionStreamResponse)
 	errCh := make(chan error, 1)
 

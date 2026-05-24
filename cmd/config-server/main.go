@@ -1,3 +1,5 @@
+// Package main provides the config-server that watches Kubernetes Agent CRDs
+// and serves them via SSE to the llmrouter.
 package main
 
 import (
@@ -90,7 +92,10 @@ func (s *ConfigServer) handleSync(w http.ResponseWriter, r *http.Request) {
 	initialData := s.currentConfig
 	s.mu.RUnlock()
 	if initialData != nil {
-		fmt.Fprintf(w, "data: %s\n\n", initialData)
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", initialData); err != nil {
+			log.Error().Err(err).Msg("failed to write initial data")
+			return
+		}
 		if f, ok := w.(http.Flusher); ok {
 			f.Flush()
 		}
@@ -99,7 +104,10 @@ func (s *ConfigServer) handleSync(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case data := <-ch:
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+				log.Error().Err(err).Msg("failed to write data")
+				return
+			}
 			if f, ok := w.(http.Flusher); ok {
 				f.Flush()
 			}
@@ -136,17 +144,19 @@ func main() {
 	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynClient, time.Minute, metav1.NamespaceAll, nil)
 	informer := factory.ForResource(agentGVR).Informer()
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+	if _, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(_ interface{}) {
 			server.reconcile(factory)
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
+		UpdateFunc: func(_, _ interface{}) {
 			server.reconcile(factory)
 		},
-		DeleteFunc: func(obj interface{}) {
+		DeleteFunc: func(_ interface{}) {
 			server.reconcile(factory)
 		},
-	})
+	}); err != nil {
+		log.Fatal().Err(err).Msg("failed to add event handler")
+	}
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -178,7 +188,9 @@ func main() {
 	log.Info().Msg("shutting down...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	httpServer.Shutdown(ctx)
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Error().Err(err).Msg("server shutdown failed")
+	}
 }
 
 func (s *ConfigServer) reconcile(factory dynamicinformer.DynamicSharedInformerFactory) {

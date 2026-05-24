@@ -1,3 +1,5 @@
+// Package router implements the core routing logic for distributing requests
+// among multiple LLM providers.
 package router
 
 import (
@@ -16,9 +18,11 @@ import (
 )
 
 var (
+	// ErrNoProviders is returned when no providers are available to handle a request.
 	ErrNoProviders = errors.New("no providers available")
 )
 
+// ProviderWithMetadata wraps a provider with additional metadata used for routing.
 type ProviderWithMetadata struct {
 	provider.Provider
 	PromptPrice     float64
@@ -28,7 +32,7 @@ type ProviderWithMetadata struct {
 	mu              sync.RWMutex
 }
 
-
+// UpdateLatency updates the moving average latency for the provider.
 func (p *ProviderWithMetadata) UpdateLatency(latency float64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -40,12 +44,12 @@ func (p *ProviderWithMetadata) UpdateLatency(latency float64) {
 	}
 }
 
+// GetLatency returns the current moving average latency.
 func (p *ProviderWithMetadata) GetLatency() float64 {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.AvgLatency
 }
-
 
 // Router manages a pool of providers and handles routing logic.
 type Router struct {
@@ -54,11 +58,12 @@ type Router struct {
 	strategy  string
 	failover  bool
 	retries   int
-	
-	current   uint64 // for round-robin
-	mu        sync.RWMutex
+
+	current uint64 // for round-robin
+	mu      sync.RWMutex
 }
 
+// NewRouter creates a new Router instance.
 func NewRouter(providers []*ProviderWithMetadata, strategy string, failover bool, retries int) *Router {
 	return &Router{
 		providers: providers,
@@ -74,6 +79,7 @@ func (r *Router) WithAgentID(id string) *Router {
 	return r
 }
 
+// GetStrategy returns the current routing strategy.
 func (r *Router) GetStrategy() string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -89,6 +95,7 @@ func (r *Router) UpdateProviders(newProviders []*ProviderWithMetadata) {
 	log.Info().Int("count", len(newProviders)).Msg("router providers updated")
 }
 
+// SetStrategy updates the routing strategy.
 func (r *Router) SetStrategy(strategy string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -105,7 +112,7 @@ func (r *Router) selectProviders(providers []*ProviderWithMetadata, requestedMod
 			filtered = append(filtered, p)
 			continue
 		}
-		
+
 		supported := false
 		for _, m := range p.Models {
 			if m == requestedModel {
@@ -147,6 +154,7 @@ func (r *Router) selectProviders(providers []*ProviderWithMetadata, requestedMod
 	}
 }
 
+// ChatCompletion routes a chat completion request to an available provider.
 func (r *Router) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (*api.ChatCompletionResponse, error) {
 	r.mu.RLock()
 	providers := r.providers
@@ -175,7 +183,7 @@ func (r *Router) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequ
 	var lastErr error
 	for i := 0; i < maxAttempts; i++ {
 		p := sortedProviders[i]
-		
+
 		logger := observability.GetLogger(ctx)
 		logger.Debug().
 			Str("provider", p.Name()).
@@ -183,7 +191,7 @@ func (r *Router) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequ
 			Str("strategy", strategy).
 			Float64("avg_latency", p.GetLatency()).
 			Msg("routing request")
-		
+
 		start := time.Now()
 		resp, err := p.ChatCompletion(ctx, req)
 		duration := time.Since(start).Seconds()
@@ -206,10 +214,10 @@ func (r *Router) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequ
 		if err == nil {
 			return resp, nil
 		}
-		
+
 		logger.Warn().Err(err).Str("provider", p.Name()).Msg("provider request failed")
 		lastErr = err
-		
+
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return nil, err
 		}
@@ -218,6 +226,7 @@ func (r *Router) ChatCompletion(ctx context.Context, req *api.ChatCompletionRequ
 	return nil, lastErr
 }
 
+// StreamChatCompletion routes a streaming chat completion request to an available provider.
 func (r *Router) StreamChatCompletion(ctx context.Context, req *api.ChatCompletionRequest) (<-chan *api.ChatCompletionStreamResponse, <-chan error) {
 	r.mu.RLock()
 	providers := r.providers

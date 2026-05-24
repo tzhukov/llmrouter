@@ -12,11 +12,11 @@ import (
 
 func TestRouter_Strategies(t *testing.T) {
 	p1 := &router.ProviderWithMetadata{
-		Provider:    mock.NewMockProvider("cheap-but-slow", 50*time.Millisecond, nil),
+		Provider:    mock.NewProvider("cheap-but-slow", 50*time.Millisecond, nil),
 		PromptPrice: 0.01,
 	}
 	p2 := &router.ProviderWithMetadata{
-		Provider:    mock.NewMockProvider("expensive-but-fast", 10*time.Millisecond, nil),
+		Provider:    mock.NewProvider("expensive-but-fast", 10*time.Millisecond, nil),
 		PromptPrice: 0.10,
 	}
 
@@ -41,9 +41,11 @@ func TestRouter_Strategies(t *testing.T) {
 
 	t.Run("Latency-based routing", func(t *testing.T) {
 		r.SetStrategy("latency")
-		
+
 		// Warm up: mock-1 is slow, mock-2 is fast
-		r.ChatCompletion(ctx, req) // Uses RR initially if no stats? No, RR logic is different.
+		if _, err := r.ChatCompletion(ctx, req); err != nil {
+			t.Errorf("warmup failed: %v", err)
+		}
 		// Actually, let's manually update latency to simulate stats
 		p1.UpdateLatency(0.050)
 		p2.UpdateLatency(0.010)
@@ -62,7 +64,7 @@ func TestRouter_Strategies(t *testing.T) {
 	t.Run("Streaming", func(t *testing.T) {
 		r.SetStrategy("round-robin")
 		respCh, errCh := r.StreamChatCompletion(ctx, req)
-		
+
 		count := 0
 		for range respCh {
 			count++

@@ -1,17 +1,18 @@
+// Package api defines the data structures for the llmrouter API.
 package api
 
 // ChatCompletionRequest represents a request to the chat completion endpoint.
 type ChatCompletionRequest struct {
-	AgentID          string                `json:"agent_id,omitempty"`
-	Model            string                `json:"model"`
+	AgentID          string                  `json:"agent_id,omitempty"`
+	Model            string                  `json:"model"`
 	Messages         []ChatCompletionMessage `json:"messages"`
-	Stream           bool                  `json:"stream,omitempty"`
-	Temperature      *float32              `json:"temperature,omitempty"`
-	TopP             *float32              `json:"top_p,omitempty"`
-	MaxTokens        *int                  `json:"max_tokens,omitempty"`
-	PresencePenalty  *float32              `json:"presence_penalty,omitempty"`
-	FrequencyPenalty *float32              `json:"frequency_penalty,omitempty"`
-	User             string                `json:"user,omitempty"`
+	Stream           bool                    `json:"stream,omitempty"`
+	Temperature      *float32                `json:"temperature,omitempty"`
+	TopP             *float32                `json:"top_p,omitempty"`
+	MaxTokens        *int                    `json:"max_tokens,omitempty"`
+	PresencePenalty  *float32                `json:"presence_penalty,omitempty"`
+	FrequencyPenalty *float32                `json:"frequency_penalty,omitempty"`
+	User             string                  `json:"user,omitempty"`
 }
 
 // ChatCompletionMessage represents a single message in a chat completion request/response.
@@ -23,12 +24,12 @@ type ChatCompletionMessage struct {
 
 // ChatCompletionResponse represents a response from the chat completion endpoint.
 type ChatCompletionResponse struct {
-	ID      string                       `json:"id"`
-	Object  string                       `json:"object"`
-	Created int64                        `json:"created"`
-	Model   string                       `json:"model"`
-	Choices []ChatCompletionChoice       `json:"choices"`
-	Usage   ChatCompletionUsage          `json:"usage"`
+	ID      string                 `json:"id"`
+	Object  string                 `json:"object"`
+	Created int64                  `json:"created"`
+	Model   string                 `json:"model"`
+	Choices []ChatCompletionChoice `json:"choices"`
+	Usage   ChatCompletionUsage    `json:"usage"`
 }
 
 // ChatCompletionChoice represents a single choice in a chat completion response.

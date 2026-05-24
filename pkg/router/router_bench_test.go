@@ -9,14 +9,14 @@ import (
 )
 
 func BenchmarkRouter_ChatCompletion_RoundRobin(b *testing.B) {
-	p1 := mock.NewMockProvider("p1", 0, nil)
-	p2 := mock.NewMockProvider("p2", 0, nil)
-	
+	p1 := mock.NewProvider("p1", 0, nil)
+	p2 := mock.NewProvider("p2", 0, nil)
+
 	providers := []*ProviderWithMetadata{
 		{Provider: p1, Models: []string{"gpt-4"}},
 		{Provider: p2, Models: []string{"gpt-4"}},
 	}
-	
+
 	r := NewRouter(providers, "round-robin", false, 0)
 	ctx := context.Background()
 	req := &api.ChatCompletionRequest{Model: "gpt-4"}
@@ -31,9 +31,9 @@ func BenchmarkRouter_ChatCompletion_RoundRobin(b *testing.B) {
 }
 
 func BenchmarkRouterRegistry_GetRouter(b *testing.B) {
-	reg := NewRouterRegistry()
+	reg := NewRegistry()
 	// No need to populate for a simple Get check since it handles missing keys
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		reg.GetRouter("unknown")

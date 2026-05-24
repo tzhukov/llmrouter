@@ -1,15 +1,18 @@
+version: "2"
+
 linters:
   enable:
-    - gofmt
     - govet
     - errcheck
     - staticcheck
     - unused
-    - gosimple
     - ineffassign
-    - typecheck
     - revive
     - misspell
+
+formatters:
+  enable:
+    - gofmt
 
 linters-settings:
   revive:

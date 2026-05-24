@@ -13,13 +13,13 @@ import (
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := middleware.GetReqID(r.Context())
-		
+
 		// Create a logger with request ID
 		logger := log.With().Str("request_id", requestID).Logger()
-		
+
 		// Put logger in context
 		ctx := logger.WithContext(r.Context())
-		
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

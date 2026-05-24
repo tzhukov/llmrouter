@@ -50,11 +50,11 @@ func TestChatCompletion_Success(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(geminiResponseBody("Hi there!"))
+		_ = json.NewEncoder(w).Encode(geminiResponseBody("Hi there!"))
 	}))
 	defer srv.Close()
 
-	p := NewGeminiProvider("gemini-test", "test-key", srv.URL)
+	p := NewProvider("gemini-test", "test-key", srv.URL)
 	resp, err := p.ChatCompletion(context.Background(), makeRequest())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -75,12 +75,12 @@ func TestChatCompletion_Success(t *testing.T) {
 }
 
 func TestChatCompletion_HTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer srv.Close()
 
-	p := NewGeminiProvider("gemini-test", "bad-key", srv.URL)
+	p := NewProvider("gemini-test", "bad-key", srv.URL)
 	_, err := p.ChatCompletion(context.Background(), makeRequest())
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -90,13 +90,13 @@ func TestChatCompletion_HTTPError(t *testing.T) {
 func TestChatCompletion_RoleTranslation(t *testing.T) {
 	var captured geminiRequest
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&captured)
+		_ = json.NewDecoder(r.Body).Decode(&captured)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(geminiResponseBody("ok"))
+		_ = json.NewEncoder(w).Encode(geminiResponseBody("ok"))
 	}))
 	defer srv.Close()
 
-	p := NewGeminiProvider("gemini-test", "key", srv.URL)
+	p := NewProvider("gemini-test", "key", srv.URL)
 	req := &api.ChatCompletionRequest{
 		Model: "gemini-1.5-flash",
 		Messages: []api.ChatCompletionMessage{
@@ -105,7 +105,7 @@ func TestChatCompletion_RoleTranslation(t *testing.T) {
 			{Role: "assistant", Content: "Hi"},
 		},
 	}
-	p.ChatCompletion(context.Background(), req)
+	_, _ = p.ChatCompletion(context.Background(), req)
 
 	roles := []string{"user", "user", "model"} // system → user, assistant → model
 	for i, c := range captured.Contents {
@@ -121,16 +121,16 @@ func TestStreamChatCompletion_Success(t *testing.T) {
 		{Candidates: []geminiCandidate{{Index: 0, Content: geminiContent{Role: "model", Parts: []geminiPart{{Text: " world"}}}, FinishReason: "STOP"}}},
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		for _, c := range chunks {
 			b, _ := json.Marshal(c)
-			fmt.Fprintf(w, "data: %s\n\n", b)
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
 		}
 	}))
 	defer srv.Close()
 
-	p := NewGeminiProvider("gemini-test", "key", srv.URL)
+	p := NewProvider("gemini-test", "key", srv.URL)
 	respCh, errCh := p.StreamChatCompletion(context.Background(), makeRequest())
 
 	var texts []string
@@ -149,15 +149,16 @@ func TestStreamChatCompletion_Success(t *testing.T) {
 }
 
 func TestStreamChatCompletion_HTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
 	defer srv.Close()
 
-	p := NewGeminiProvider("gemini-test", "bad-key", srv.URL)
+	p := NewProvider("gemini-test", "bad-key", srv.URL)
 	respCh, errCh := p.StreamChatCompletion(context.Background(), makeRequest())
 
-	for range respCh {
+	for chunk := range respCh {
+		_ = chunk
 	}
 	if err := <-errCh; err == nil {
 		t.Fatal("expected error, got nil")

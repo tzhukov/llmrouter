@@ -1,3 +1,4 @@
+// Package observability provides metrics and middleware for monitoring the llmrouter.
 package observability
 
 import (

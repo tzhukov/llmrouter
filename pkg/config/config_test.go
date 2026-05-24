@@ -24,7 +24,9 @@ providers:
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(tmpfile.Name())
+	defer func() {
+		_ = os.Remove(tmpfile.Name())
+	}()
 
 	if _, err := tmpfile.Write([]byte(content)); err != nil {
 		t.Fatal(err)
@@ -34,8 +36,12 @@ providers:
 	}
 
 	// Set environment variable
-	os.Setenv("TEST_API_KEY", "secret-key")
-	defer os.Unsetenv("TEST_API_KEY")
+	if err := os.Setenv("TEST_API_KEY", "secret-key"); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Unsetenv("TEST_API_KEY")
+	}()
 
 	// Load config
 	cfg, err := config.Load(tmpfile.Name())

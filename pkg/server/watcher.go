@@ -9,6 +9,7 @@ import (
 	"github.com/user/llmrouter/pkg/config"
 )
 
+// WatchConfig starts a watcher for the configuration file.
 func (s *Server) WatchConfig(path string) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -21,7 +22,9 @@ func (s *Server) WatchConfig(path string) error {
 	}
 
 	go func() {
-		defer watcher.Close()
+		defer func() {
+			_ = watcher.Close()
+		}()
 		for {
 			select {
 			case event, ok := <-watcher.Events:

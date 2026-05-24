@@ -1,3 +1,4 @@
+// Package server tests the LLM router server.
 package server
 
 import (
@@ -14,7 +15,7 @@ import (
 
 func TestAgentRoutingIntegration(t *testing.T) {
 	s := NewServer()
-	
+
 	// Create a temporary config file with two agents
 	configContent := `
 agents:
@@ -33,11 +34,13 @@ agents:
 `
 	tmpfile, err := os.CreateTemp("", "config-*.yaml")
 	assert.NoError(t, err)
-	defer os.Remove(tmpfile.Name())
-	
+	defer func() {
+		_ = os.Remove(tmpfile.Name())
+	}()
+
 	_, err = tmpfile.Write([]byte(configContent))
 	assert.NoError(t, err)
-	tmpfile.Close()
+	_ = tmpfile.Close()
 
 	// Load the config
 	err = s.reloadConfig(tmpfile.Name())
@@ -58,13 +61,14 @@ agents:
 
 		assert.Equal(t, http.StatusOK, w.Code)
 		var resp api.ChatCompletionResponse
-		json.Unmarshal(w.Body.Bytes(), &resp)
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Specific Agent Routing", func(t *testing.T) {
 		req := api.ChatCompletionRequest{
 			AgentID: "coder",
-			Model: "gpt-4",
+			Model:   "gpt-4",
 			Messages: []api.ChatCompletionMessage{
 				{Role: "user", Content: "hello"},
 			},
@@ -81,7 +85,7 @@ agents:
 	t.Run("Unknown Agent Fallback", func(t *testing.T) {
 		req := api.ChatCompletionRequest{
 			AgentID: "unknown",
-			Model: "gpt-4",
+			Model:   "gpt-4",
 			Messages: []api.ChatCompletionMessage{
 				{Role: "user", Content: "hello"},
 			},
@@ -114,7 +118,7 @@ agents:
 
 		req := api.ChatCompletionRequest{
 			AgentID: "researcher",
-			Model: "gpt-4",
+			Model:   "gpt-4",
 			Messages: []api.ChatCompletionMessage{
 				{Role: "user", Content: "hello"},
 			},

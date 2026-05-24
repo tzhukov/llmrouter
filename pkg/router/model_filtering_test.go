@@ -1,3 +1,4 @@
+// Package router tests the routing logic.
 package router
 
 import (
@@ -11,15 +12,15 @@ import (
 
 func TestRouter_ModelAwareFiltering(t *testing.T) {
 	p1 := &ProviderWithMetadata{
-		Provider: mock.NewMockProvider("p1", 0, nil),
+		Provider: mock.NewProvider("p1", 0, nil),
 		Models:   []string{"gpt-4", "gpt-3.5"},
 	}
 	p2 := &ProviderWithMetadata{
-		Provider: mock.NewMockProvider("p2", 0, nil),
+		Provider: mock.NewProvider("p2", 0, nil),
 		Models:   []string{"claude-3", "gpt-4"},
 	}
 	p3 := &ProviderWithMetadata{
-		Provider: mock.NewMockProvider("p3", 0, nil),
+		Provider: mock.NewProvider("p3", 0, nil),
 		Models:   []string{}, // supports all
 	}
 
@@ -59,7 +60,7 @@ func TestRouter_ModelAwareFiltering(t *testing.T) {
 		assert.Equal(t, 1, len(sorted))
 		assert.Equal(t, "p3", sorted[0].Name())
 	})
-	
+
 	t.Run("Strict rejection", func(t *testing.T) {
 		// Router with only strict providers
 		r2 := NewRouter([]*ProviderWithMetadata{p1, p2}, "round-robin", true, 3)

@@ -15,7 +15,7 @@ import (
 )
 
 func TestWatchRemoteConfig(t *testing.T) {
-	registry := router.NewRouterRegistry()
+	registry := router.NewRegistry()
 	s := &Server{
 		Registry: registry,
 	}
@@ -30,9 +30,9 @@ func TestWatchRemoteConfig(t *testing.T) {
 	}
 	data, _ := json.Marshal(agents)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprintf(w, "data: %s\n\n", data)
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
 	}))
 	defer server.Close()
 

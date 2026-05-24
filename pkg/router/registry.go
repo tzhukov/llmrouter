@@ -12,19 +12,21 @@ import (
 	"github.com/user/llmrouter/pkg/provider/openai"
 )
 
-// RouterRegistry manages multiple Router instances, one per agent.
-type RouterRegistry struct {
+// Registry manages multiple Router instances, one per agent.
+type Registry struct {
 	routers map[string]*Router
 	mu      sync.RWMutex
 }
 
-func NewRouterRegistry() *RouterRegistry {
-	return &RouterRegistry{
+// NewRegistry creates a new Router Registry.
+func NewRegistry() *Registry {
+	return &Registry{
 		routers: make(map[string]*Router),
 	}
 }
 
-func (rr *RouterRegistry) GetRouter(agentID string) *Router {
+// GetRouter returns the router for the given agent ID.
+func (rr *Registry) GetRouter(agentID string) *Router {
 	rr.mu.RLock()
 	defer rr.mu.RUnlock()
 
@@ -36,11 +38,13 @@ func (rr *RouterRegistry) GetRouter(agentID string) *Router {
 	return r
 }
 
-func (rr *RouterRegistry) UpdateConfig(cfg *config.Config) {
+// UpdateConfig updates the registry with the given configuration.
+func (rr *Registry) UpdateConfig(cfg *config.Config) {
 	rr.UpdateAgents(cfg.Agents)
 }
 
-func (rr *RouterRegistry) UpdateAgents(agents map[string]config.AgentConfig) {
+// UpdateAgents updates the registry with the given agents configuration.
+func (rr *Registry) UpdateAgents(agents map[string]config.AgentConfig) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 
@@ -52,13 +56,13 @@ func (rr *RouterRegistry) UpdateAgents(agents map[string]config.AgentConfig) {
 			var p provider.Provider
 			switch pc.Type {
 			case "openai":
-				p = openai.NewOpenAIProvider(pc.APIKey, pc.BaseURL)
+				p = openai.NewProvider(pc.APIKey, pc.BaseURL)
 			case "groq":
-				p = groq.NewGroqProvider(pc.APIKey, pc.BaseURL)
+				p = groq.NewProvider(pc.APIKey, pc.BaseURL)
 			case "gemini":
-				p = gemini.NewGeminiProvider(pc.Name, pc.APIKey, pc.BaseURL)
+				p = gemini.NewProvider(pc.Name, pc.APIKey, pc.BaseURL)
 			case "mock":
-				p = mock.NewMockProvider(pc.Name, 0, nil)
+				p = mock.NewProvider(pc.Name, 0, nil)
 			default:
 				log.Warn().Str("type", pc.Type).Str("agent", agentID).Msg("unknown provider type, skipping")
 				continue
@@ -73,7 +77,7 @@ func (rr *RouterRegistry) UpdateAgents(agents map[string]config.AgentConfig) {
 
 			// Inject model map if provided in params
 			if pc.Type == "gemini" && len(pc.Params) > 0 {
-				if gp, ok := p.(*gemini.GeminiProvider); ok {
+				if gp, ok := p.(*gemini.Provider); ok {
 					gp.SetModelMap(pc.Params)
 				}
 			}

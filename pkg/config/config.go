@@ -1,3 +1,4 @@
+// Package config provides configuration management for the llmrouter.
 package config
 
 import (
@@ -7,17 +8,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Config represents the root configuration structure.
 type Config struct {
-	Providers []ProviderConfig          `yaml:"providers"`
-	Routing   RoutingConfig             `yaml:"routing"`
-	Agents    map[string]AgentConfig    `yaml:"agents"`
+	Providers []ProviderConfig       `yaml:"providers"`
+	Routing   RoutingConfig          `yaml:"routing"`
+	Agents    map[string]AgentConfig `yaml:"agents"`
 }
 
+// AgentConfig represents the configuration for a specific agent.
 type AgentConfig struct {
 	Providers []ProviderConfig `yaml:"providers"`
 	Routing   RoutingConfig    `yaml:"routing"`
 }
 
+// ProviderConfig represents the configuration for an LLM provider.
 type ProviderConfig struct {
 	Name            string            `yaml:"name"`
 	Type            string            `yaml:"type"`
@@ -30,6 +34,7 @@ type ProviderConfig struct {
 	Params          map[string]string `yaml:"params"`
 }
 
+// RoutingConfig represents the routing strategy configuration.
 type RoutingConfig struct {
 	Strategy string `yaml:"strategy"`
 	Failover bool   `yaml:"failover"`

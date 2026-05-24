@@ -20,10 +20,12 @@ func TestIntegration_RoutingAndHotReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	configPath := filepath.Join(tempDir, "config.yaml")
-	
+
 	// 1. Initial Config: 2 Mock Providers
 	initialConfig := `
 providers:
@@ -43,7 +45,7 @@ providers:
 
 	// 2. Verify Round Robin
 	reqBody, _ := json.Marshal(api.ChatCompletionRequest{Model: "test"})
-	
+
 	// Request 1 -> mock-1 or mock-2
 	resp1 := doRequest(s, reqBody)
 	// Request 2 -> the other one
@@ -79,7 +81,9 @@ func doRequest(s *server.Server, body []byte) api.ChatCompletionResponse {
 	s.Router.ServeHTTP(w, req)
 
 	var resp api.ChatCompletionResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		panic(err)
+	}
 	return resp
 }
 
@@ -88,7 +92,9 @@ func TestIntegration_Streaming(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	configPath := filepath.Join(tempDir, "config.yaml")
 	config := `
